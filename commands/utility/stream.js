@@ -8,7 +8,8 @@ module.exports = {
 	async execute(interaction) {
 		await interaction.deferReply();
 
-		const voiceChannel = interaction.member.voice.channel;
+		const member = await interaction.guild.members.fetch(interaction.member.id);
+		const voiceChannel = member.voice.channel;
 
 		if (!voiceChannel) {
 			return interaction.followUp('You need to be in a voice channel to use this command.');
