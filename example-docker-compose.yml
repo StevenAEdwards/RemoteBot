@@ -1,0 +1,10 @@
+services:
+  streambot:
+    image: remote_bot
+    container_name: remotebot
+    ports:
+      - "3234:3000"
+    stdin_open: true
+    tty: true
+    environment:
+        DISCORD_TOKEN: ""
