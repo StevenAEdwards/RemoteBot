@@ -1,0 +1,23 @@
+{
+  "name": "remotebot",
+  "version": "1.0.0",
+  "description": "A Discord Bot for Controlling StreamBot",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/StevenAEdwards/RemoteBot.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/StevenAEdwards/RemoteBot/issues"
+  },
+  "homepage": "https://github.com/StevenAEdwards/RemoteBot#readme",
+  "dependencies": {
+    "axios": "^1.7.7",
+    "discord.js": "^14.16.2"
+  }
+}
