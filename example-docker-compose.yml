@@ -1,6 +1,6 @@
 services:
-  streambot:
-    image: remote_bot
+  remotebot:
+    image: stevenedwards/remotebot:latest
     container_name: remotebot
     ports:
       - "3234:3000"
@@ -8,3 +8,7 @@ services:
     tty: true
     environment:
         DISCORD_TOKEN: ""
+        STREAM_URL: ""
+        CLIENT_ID: ""
+        GUILD_ID: ""
+        STREAM_BOT_URL: ""

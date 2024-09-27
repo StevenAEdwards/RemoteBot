@@ -26,7 +26,7 @@ module.exports = {
 		};
 
 		try {
-			await axios.post('http://192.168.86.214:3123/play', requestData, {
+			await axios.post(`${process.env.STREAM_BOT_URL}/play`, requestData, {
 				headers: {
 					'Content-Type': 'application/json',
 				},
