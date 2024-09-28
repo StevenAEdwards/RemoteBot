@@ -66,7 +66,7 @@ module.exports = {
             await interaction.update({ content: `Started streaming **${streamName}** in ${voiceChannel.name}`, components: [] });
         } catch (error) {
             console.error('Error starting stream:', error);
-            
+
             if (interaction.replied || interaction.deferred) {
                 await interaction.followUp({ content: `Failed to start streaming: ${error.message}`, ephemeral: true });
             } else {
