@@ -2,4 +2,3 @@ docker-compose.yml
 node_modules
 .env
 *.m3u
-archived

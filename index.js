@@ -2,7 +2,12 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { Client, Collection, Events, GatewayIntentBits, REST, Routes } = require('discord.js');
 
-const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+const client = new Client({
+	intents: [
+		GatewayIntentBits.Guilds,
+		GatewayIntentBits.GuildVoiceStates,
+	]
+});
 client.commands = new Collection();
 client.streams = {};
 
@@ -86,6 +91,16 @@ client.on(Events.InteractionCreate, async interaction => {
 	}
 });
 
+client.on('voiceStateUpdate', async (oldState, newState) => {
+	const guild = newState.guild;
+	try {
+		await guild.members.fetch({ force: true });
+	} catch (error) {
+		console.error('Failed to update the members cache:', error);
+	}
+	console.log('Current Members Cache:', guild.members.cache);
+});
+
 async function sendError(interaction, message) {
 	try {
 		if (interaction.replied || interaction.deferred) {
@@ -107,7 +122,7 @@ function importM3UFile(filePath) {
 	try {
 		const fileContent = fs.readFileSync(filePath, 'utf8');
 		client.streams = parseM3UFile(fileContent);
-		console.log('Streams imported successfully:', client.streams);
+		console.log('Streams imported successfully:');
 	} catch (error) {
 		console.error('Error reading M3U file:', error);
 	}
