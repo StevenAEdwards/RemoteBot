@@ -13,7 +13,6 @@ module.exports = {
     data: new SlashCommandBuilder()
         .setName('stream')
         .setDescription('Choose a stream for StreamBot to bring to your voice channel!'),
-
     async execute(interaction, client) {
         const filteredStreams = Object.entries(client.streams).filter(([name]) =>
             keywords.some(keyword => name.toUpperCase().includes(keyword))
@@ -24,29 +23,54 @@ module.exports = {
             return;
         }
 
+        let dropDownOptions = filteredStreams.map(([name, url]) => ({
+            label: name.length > 97 ? `${name.slice(0, 97)}...` : name,
+            value: `${name}|${url}`,
+        }))
+
+        dropDownOptions = dropDownOptions.slice(0, 25);
+
         const selectMenu = new StringSelectMenuBuilder()
-            .setCustomId('selectStream')
+            .setCustomId('stream')
             .setPlaceholder('Click Here!')
-            .addOptions(filteredStreams.map(([name, url]) => ({
-                label: name.length > 97 ? `${name.slice(0, 97)}...` : name,
-                value: `${name}|${url}`,
-            })));
+            .addOptions(dropDownOptions);
 
         const menuRow = new ActionRowBuilder().addComponents(selectMenu);
 
         await interaction.reply({
             content: 'Choose a stream for StreamBot to bring to your voice channel.',
             components: [menuRow],
+            ephemeral: true, 
         });
+        
+        setTimeout(async () => {
+            try {
+                const disabledMenu = new StringSelectMenuBuilder(selectMenu)
+                    .setCustomId('stream')
+                    .setPlaceholder('Timed out')
+                    .setDisabled(true)
+                    .setOptions(dropDownOptions);
+                console.log("here");
+                const disabledRow = new ActionRowBuilder().addComponents(disabledMenu);
+                await interaction.editReply({
+                    content: 'Type /stream if still want to choose a stream.',
+                    components: [disabledRow]
+                });
+            } catch (error) {
+                console.error('Error disabling dropdown menu:', error);
+            }
+        }, 30000);
     },
 
-    async handleSelectMenu(interaction, client) {
+    async handleSelectMenu(interaction) {
         const [streamName, streamURL] = interaction.values[0].split('|');
         const member = await interaction.guild.members.fetch(interaction.user.id);
         const voiceChannel = member.voice.channel;
 
+        await interaction.deferReply({ephemeral: true});
+
         if (!voiceChannel) {
-            await interaction.reply({ content: 'You need to be in a voice channel to use this command.', ephemeral: true });
+            await interaction.editReply({ content: 'You need to be in a voice channel to use this command.'});
             return;
         }
 
@@ -63,15 +87,10 @@ module.exports = {
                 },
             });
 
-            await interaction.update({ content: `Started streaming **${streamName}** in ${voiceChannel.name}`, components: [] });
+            await interaction.editReply({ content: `Started streaming **${streamName}** in **${voiceChannel.name}**`, components: [] });
         } catch (error) {
             console.error('Error starting stream:', error);
-
-            if (interaction.replied || interaction.deferred) {
-                await interaction.followUp({ content: `Failed to start streaming: ${error.message}`, ephemeral: true });
-            } else {
-                await interaction.reply({ content: `Failed to start streaming: ${error.message}`, ephemeral: true });
-            }
+            await interaction.editReply({ content: `Failed to start streaming: ${error.message}`});
         }
     }
 };

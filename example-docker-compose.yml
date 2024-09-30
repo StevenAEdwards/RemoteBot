@@ -7,8 +7,8 @@ services:
     stdin_open: true
     tty: true
     environment:
-        DISCORD_TOKEN: ""
-        M3U_PATH: "streams.m3u"
-        CLIENT_ID: ""
-        GUILD_ID: ""
-        STREAM_BOT_URL: ""
+      DISCORD_TOKEN: ""
+      M3U_STREAMS_PATH: "streams.m3u"
+      CLIENT_ID: ""
+      GUILD_ID: ""
+      STREAM_BOT_URL: ""
