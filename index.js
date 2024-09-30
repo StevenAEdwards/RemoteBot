@@ -11,7 +11,7 @@ const client = new Client({
 client.commands = new Collection();
 client.streams = {};
 
-const { CLIENT_ID, GUILD_ID, DISCORD_TOKEN, M3U_PATH } = process.env;
+const { CLIENT_ID, GUILD_ID, DISCORD_TOKEN, M3U_STREAMS_PATH } = process.env;
 
 if (!CLIENT_ID || !GUILD_ID || !DISCORD_TOKEN) {
 	console.error('Missing critical environment variables. Ensure CLIENT_ID, GUILD_ID, and DISCORD_TOKEN are set.');
@@ -57,8 +57,8 @@ const rest = new REST({ version: '10' }).setToken(DISCORD_TOKEN);
 client.once(Events.ClientReady, () => {
 	console.log(`Ready! Logged in as ${client.user.tag}`);
 
-	if (M3U_PATH) {
-		importM3UFile(M3U_PATH);
+	if (M3U_STREAMS_PATH) {
+		importM3UFile(M3U_STREAMS_PATH);
 	} else {
 		console.error('No M3U file path specified in environment variables.');
 	}
@@ -77,21 +77,23 @@ client.on(Events.InteractionCreate, async interaction => {
 			console.error(`Error executing command ${interaction.commandName}:`, error);
 			await sendError(interaction, 'There was an error while executing this command!');
 		}
-	} else if (interaction.isStringSelectMenu()) {
-
-		const command = client.commands.get('stream');
-		if (command) {
-			try {
-				await command.handleSelectMenu(interaction, client);
-			} catch (error) {
-				console.error('Error handling dropdown interaction:', error);
-				await sendError(interaction, 'There was an error handling the dropdown interaction!');
-			}
+	} 
+	else if (interaction.isStringSelectMenu()) {
+		const command = client.commands.get(interaction.customId);
+		if (!command) {
+			console.error(`No command matching ${interaction.customId} was found.`);
+			return;
+		}
+		try {
+			await command.handleSelectMenu(interaction);
+		} catch (error) {
+			console.error('Error handling dropdown interaction:', error);
+			await sendError(interaction, 'There was an error handling the dropdown interaction!');
 		}
 	}
 });
 
-client.on('voiceStateUpdate', async (oldState, newState) => {
+client.on('voiceStateUpdate', async (newState) => {
 	const guild = newState.guild;
 	try {
 		await guild.members.fetch({ force: true });
@@ -122,7 +124,7 @@ function importM3UFile(filePath) {
 	try {
 		const fileContent = fs.readFileSync(filePath, 'utf8');
 		client.streams = parseM3UFile(fileContent);
-		console.log('Streams imported successfully:');
+		console.log('Streams imported successfully');
 	} catch (error) {
 		console.error('Error reading M3U file:', error);
 	}

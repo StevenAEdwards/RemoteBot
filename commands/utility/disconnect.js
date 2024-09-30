@@ -6,13 +6,13 @@ module.exports = {
 		.setName('disconnect')
 		.setDescription('Disconnects Stream Bot'),
 	async execute(interaction) {
-		await interaction.deferReply();
+		await interaction.deferReply({ephemeral: true});
 		try {
 			await axios.post(`${process.env.STREAM_BOT_URL}/disconnect`);
-			await interaction.followUp(`Disconnected`);
+			await interaction.editReply({content: `Disconnected`});
 		} catch (error) {
 			console.error(error);
-			await interaction.followUp(`Failed to Disconnect`);
+			await interaction.editReply({content: `Failed to Disconnect`});
 		}
 	},
 };
