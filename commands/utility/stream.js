@@ -1,13 +1,6 @@
 const { SlashCommandBuilder, StringSelectMenuBuilder, ActionRowBuilder } = require('discord.js');
 const axios = require('axios');
-
-const keywords = [
-    'HELLS KITCHEN', 'KITCHEN NIGHTMARES',
-    'TRAILER PARK BOYS', 'IMPRACTICAL JOKERS', 'JACKASS', 'KEY AND PEELE',
-    'SOUTH PARK', 'TOSH.0', 'WHOSE LINE IS IT ANYWAY', 'MASTERCHEF',
-    'SKYGO: SKY SPORTS NFL 4K', 'SKY SPORTS MAIN EVENT 4K',
-    'SKY SPORTS + 4K', 'SKY SPORTS MIX 4K', 'SKY SPORTS F1 4K'
-];
+const KEYWORDS = process.env.KEYWORDS ? process.env.KEYWORDS.split(',') : [];
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -15,7 +8,7 @@ module.exports = {
         .setDescription('Choose a stream for StreamBot to bring to your voice channel!'),
     async execute(interaction, client) {
         const filteredStreams = Object.entries(client.streams).filter(([name]) =>
-            keywords.some(keyword => name.toUpperCase().includes(keyword))
+            KEYWORDS.some(keyword => name.toUpperCase().includes(keyword))
         );
 
         if (filteredStreams.length === 0) {
@@ -50,7 +43,6 @@ module.exports = {
                     .setPlaceholder('Timed out')
                     .setDisabled(true)
                     .setOptions(dropDownOptions);
-                console.log("here");
                 const disabledRow = new ActionRowBuilder().addComponents(disabledMenu);
                 await interaction.editReply({
                     content: 'Type /stream if still want to choose a stream.',
