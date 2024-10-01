@@ -18,6 +18,7 @@
   "homepage": "https://github.com/StevenAEdwards/RemoteBot#readme",
   "dependencies": {
     "axios": "^1.7.7",
-    "discord.js": "^14.16.2"
+    "discord.js": "^14.16.2",
+    "node-cron": "^3.0.3"
   }
 }

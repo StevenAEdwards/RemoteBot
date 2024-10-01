@@ -1,5 +1,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
+const axios = require('axios');
+const cron = require('node-cron');
 const { Client, Collection, Events, GatewayIntentBits, REST, Routes } = require('discord.js');
 
 const client = new Client({
@@ -11,7 +13,9 @@ const client = new Client({
 client.commands = new Collection();
 client.streams = {};
 
-const { CLIENT_ID, GUILD_ID, DISCORD_TOKEN, M3U_STREAMS_PATH } = process.env;
+const { CLIENT_ID, GUILD_ID, DISCORD_TOKEN, M3U_STREAMS_URL } = process.env;
+const M3U_STREAMS_PATH = "streams.url"
+
 
 if (!CLIENT_ID || !GUILD_ID || !DISCORD_TOKEN) {
 	console.error('Missing critical environment variables. Ensure CLIENT_ID, GUILD_ID, and DISCORD_TOKEN are set.');
@@ -54,8 +58,24 @@ const rest = new REST({ version: '10' }).setToken(DISCORD_TOKEN);
 	}
 })();
 
-client.once(Events.ClientReady, () => {
+client.once(Events.ClientReady, async () => {
 	console.log(`Ready! Logged in as ${client.user.tag}`);
+
+	if (M3U_STREAMS_URL) {
+		console.log('Running initial file download on startup...');
+		await downloadFile(M3U_STREAMS_URL, M3U_STREAMS_PATH);
+
+		cron.schedule('0 5 * * *', async () => {
+			console.log('Running daily file download at 5:00 AM America/New_York time...');
+			await downloadFile(M3U_STREAMS_URL, M3U_STREAMS_PATH);
+			await importM3UFile(M3U_STREAMS_PATH);
+		}, {
+			scheduled: true,
+			timezone: "America/New_York"
+		});
+	} else {
+		console.error('No M3U_STREAMS_URL specified in environment variables.');
+	}
 
 	if (M3U_STREAMS_PATH) {
 		importM3UFile(M3U_STREAMS_PATH);
@@ -112,6 +132,32 @@ async function sendError(interaction, message) {
 		}
 	} catch (error) {
 		console.error('Failed to send error message:', error);
+	}
+}
+
+async function downloadFile(url, savePath) {
+	try {
+		const response = await axios({
+			url,
+			method: 'GET',
+			responseType: 'stream'
+		});
+
+		const writer = fs.createWriteStream(savePath);
+		response.data.pipe(writer);
+
+		return new Promise((resolve, reject) => {
+			writer.on('finish', () => {
+				console.log(`File downloaded successfully to ${savePath}`);
+				resolve();
+			});
+			writer.on('error', (err) => {
+				console.error('Error downloading file:', err);
+				reject(err);
+			});
+		});
+	} catch (error) {
+		console.error('Error downloading file:', error);
 	}
 }
 
