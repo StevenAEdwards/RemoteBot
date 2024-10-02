@@ -97,7 +97,7 @@ client.on(Events.InteractionCreate, async interaction => {
 			console.error(`Error executing command ${interaction.commandName}:`, error);
 			await sendError(interaction, 'There was an error while executing this command!');
 		}
-	} 
+	}
 	else if (interaction.isStringSelectMenu()) {
 		const command = client.commands.get(interaction.customId);
 		if (!command) {
@@ -120,7 +120,6 @@ client.on('voiceStateUpdate', async (newState) => {
 	} catch (error) {
 		console.error('Failed to update the members cache:', error);
 	}
-	console.log('Current Members Cache:', guild.members.cache);
 });
 
 async function sendError(interaction, message) {
