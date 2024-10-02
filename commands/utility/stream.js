@@ -16,12 +16,10 @@ module.exports = {
             return;
         }
 
-        let dropDownOptions = filteredStreams.map(([name, url]) => ({
+        const dropDownOptions = filteredStreams.map(([name, url]) => ({
             label: name.length > 97 ? `${name.slice(0, 97)}...` : name,
             value: `${name}|${url}`,
-        }))
-
-        dropDownOptions = dropDownOptions.slice(0, 25);
+        })).slice(0, 25);
 
         const selectMenu = new StringSelectMenuBuilder()
             .setCustomId('stream')
@@ -32,26 +30,27 @@ module.exports = {
 
         await interaction.reply({
             content: 'Choose a stream for StreamBot to bring to your voice channel.',
-            components: [menuRow],
-            ephemeral: true, 
+            components: [menuRow]
         });
-        
-        setTimeout(async () => {
-            try {
-                const disabledMenu = new StringSelectMenuBuilder(selectMenu)
-                    .setCustomId('stream')
-                    .setPlaceholder('Timed out')
-                    .setDisabled(true)
-                    .setOptions(dropDownOptions);
-                const disabledRow = new ActionRowBuilder().addComponents(disabledMenu);
-                await interaction.editReply({
-                    content: 'Type /stream if still want to choose a stream.',
-                    components: [disabledRow]
-                });
-            } catch (error) {
-                console.error('Error disabling dropdown menu:', error);
+
+        const filter = i => i.customId === 'stream' && i.user.id === interaction.user.id;
+        const collector = interaction.channel.createMessageComponentCollector({ filter, time: 30000 });
+
+        collector.on('collect', async i => {
+            if (i.customId === 'stream') {
+                await this.handleSelectMenu(i);
+                collector.stop();
             }
-        }, 30000);
+        });
+
+        collector.on('end', async collected => {
+            if (collected.size === 0) {
+                await interaction.editReply({
+                    content: '⏰ No stream selected. Please type `/stream` if you still want to choose a stream.',
+                    components: []
+                });
+            }
+        });
     },
 
     async handleSelectMenu(interaction) {
@@ -59,10 +58,8 @@ module.exports = {
         const member = await interaction.guild.members.fetch(interaction.user.id);
         const voiceChannel = member.voice.channel;
 
-        await interaction.deferReply({ephemeral: true});
-
         if (!voiceChannel) {
-            await interaction.editReply({ content: 'You need to be in a voice channel to use this command.'});
+            await interaction.update({ content: '❌ You need to be in a voice channel to use this command.', components: [] });
             return;
         }
 
@@ -73,16 +70,18 @@ module.exports = {
         };
 
         try {
-            await axios.post(`${process.env.STREAM_BOT_URL}/play`, requestData, {
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-            });
+            await interaction.update({ content: `🔄 Attempting to start **${streamName}** in **${voiceChannel.name}**...`, components: [] });
 
-            await interaction.editReply({ content: `Started streaming **${streamName}** in **${voiceChannel.name}**`, components: [] });
+            await axios.post(`${process.env.STREAM_BOT_URL}/play`, requestData, {
+                headers: { 'Content-Type': 'application/json' },
+            });
+            await interaction.editReply({ content: `✅ Started streaming **${streamName}** in **${voiceChannel.name}**!` });
         } catch (error) {
-            console.error('Error starting stream:', error);
-            await interaction.editReply({ content: `Failed to start streaming: ${error.message}`});
+            // To Do: learn how to properly write interaction responses with timeouts. That doesn't swallow certain errors.  
+            if (error.code !== 40060) {
+                console.error('Error starting stream:', error);
+                await interaction.editReply({ content: `❌ Failed to start streaming: ${error.message}` });
+            }
         }
     }
 };
