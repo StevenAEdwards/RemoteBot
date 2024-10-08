@@ -98,27 +98,23 @@ client.on(Events.InteractionCreate, async interaction => {
 			await sendError(interaction, 'There was an error while executing this command!');
 		}
 	}
-	else if (interaction.isStringSelectMenu()) {
-		const command = client.commands.get(interaction.customId);
-		if (!command) {
-			console.error(`No command matching ${interaction.customId} was found.`);
-			return;
-		}
-		try {
-			await command.handleSelectMenu(interaction);
-		} catch (error) {
-			console.error('Error handling dropdown interaction:', error);
-			await sendError(interaction, 'There was an error handling the dropdown interaction!');
-		}
-	}
 });
-
-client.on('voiceStateUpdate', async (newState) => {
+client.on('voiceStateUpdate', async (oldState, newState) => {
 	const guild = newState.guild;
 	try {
-		await guild.members.fetch({ force: true });
+		const activeVoiceMemberIDs = guild.channels.cache
+			.filter(channel => channel.isVoiceBased())
+			.map(channel => [...channel.members.keys()])
+			.flat();
+
+		if (newState.channelId && (!oldState.channelId || oldState.channelId !== newState.channelId)) {
+			if (!activeVoiceMemberIDs.includes(newState.id)) {
+				activeVoiceMemberIDs.push(newState.id);
+			}
+		}
+		await guild.members.fetch({ user: activeVoiceMemberIDs, force: true });
 	} catch (error) {
-		console.error('Failed to update the members cache:', error);
+		console.error('Failed to update the members cache for active voice members:', error);
 	}
 });
 
