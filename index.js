@@ -14,7 +14,7 @@ client.commands = new Collection();
 client.streams = {};
 
 const { CLIENT_ID, GUILD_ID, DISCORD_TOKEN, M3U_STREAMS_URL } = process.env;
-const M3U_STREAMS_PATH = "streams.url"
+const M3U_STREAMS_PATH = "streams.m3u"
 
 
 if (!CLIENT_ID || !GUILD_ID || !DISCORD_TOKEN) {
@@ -64,7 +64,6 @@ client.once(Events.ClientReady, async () => {
 	if (M3U_STREAMS_URL) {
 		console.log('Running initial file download on startup...');
 		await downloadFile(M3U_STREAMS_URL, M3U_STREAMS_PATH);
-
 		cron.schedule('0 5 * * *', async () => {
 			console.log('Running daily file download at 5:00 AM America/New_York time...');
 			await downloadFile(M3U_STREAMS_URL, M3U_STREAMS_PATH);

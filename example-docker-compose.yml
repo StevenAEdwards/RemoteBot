@@ -14,3 +14,4 @@ services:
       STREAM_BOT_URL: ""
       TZ: ""
       KEYWORDS: ""
+      EXCLUDES: ""
