@@ -9,10 +9,10 @@ module.exports = {
     data: new SlashCommandBuilder()
         .setName('stream')
         .setDescription('Choose a stream for StreamBot to bring to your voice channel!')
-        .addStringOption(option => 
+        .addStringOption(option =>
             option.setName('keyword')
-                  .setDescription('Find streams containing keyword')
-                  .setRequired(false)
+                .setDescription('Find streams containing keyword')
+                .setRequired(false)
         ),
     async execute(interaction, client) {
         await interaction.deferReply();
@@ -82,7 +82,32 @@ const createCollector = (interaction, filteredStreams, currentPage, totalPages, 
         } else if (i.customId.startsWith('stream_menu_')) {
             collector.stop();
 
-            const { streamName, streamUrl } = searchStreamByNumber(client.streams, i.values[0]);
+            // const { streamName, streamUrl } = searchStreamByNumber(client.streams, i.values[0]);
+
+            // Get the selected stream name and URL (or ID in the case of Jellyfin)
+            console.log(i);
+            const selectedStream = client.streams[i.values[0]];
+            console.log(i.values[0]);
+            let streamName = null;
+            let streamUrl = null;
+
+            // Check if the stream starts with '[JF | ]'
+            if (selectedStream && selectedStream.startsWith('[JF | ]')) {
+                // It's a Jellyfin stream, so we build the Jellyfin download link
+                streamName = selectedStream;
+                const streamId = client.streams[i.values[0]]; // Stream ID stored as URL
+                streamUrl = buildJellyfinDownloadLink(JELLYFIN_URL, JELLYFIN_API_KEY, streamId);
+            } else {
+                // Non-Jellyfin stream, so we use the existing search logic
+                const result = searchStreamByNumber(client.streams, i.values[0]);
+                if (result) {
+                    streamName = result.streamName;
+                    streamUrl = result.streamUrl;
+                }
+            }
+
+            console.log(streamName);
+            console.log(streamUrl);
 
             const member = await i.guild.members.fetch(i.user.id);
             const voiceChannel = member.voice.channel;
@@ -100,15 +125,18 @@ const createCollector = (interaction, filteredStreams, currentPage, totalPages, 
 
             await i.update({ content: `🔄 Attempting to start **${streamName}** in **${voiceChannel.name}**...`, components: [] });
 
-            try {
-                await axios.post(`${process.env.STREAM_BOT_URL}/play`, requestData, {
-                    headers: { 'Content-Type': 'application/json' },
-                });
-                await i.editReply({ content: `✅ Successfully started streaming **${streamName}** in **${voiceChannel.name}**!` });
-            } catch (error) {
-                console.error('Error starting stream:', error);
-                await i.editReply({ content: `❌ Failed to start streaming: ${error.message}` });
-            }
+            console.log(requestData);
+
+            // try {
+            //     await axios.post(`${process.env.STREAM_BOT_URL}/play`, requestData, {
+            //         headers: { 'Content-Type': 'application/json' },
+            //     });
+            //     await i.editReply({ content: `✅ Successfully started streaming **${streamName}** in **${voiceChannel.name}**!` });
+            // } catch (error) {
+            //     console.error('Error starting stream:', error);
+            //     await i.editReply({ content: `❌ Failed to start streaming: ${error.message}` });
+            // }
+            await i.editReply({ content: `❌ Failed to start streaming: ${error.message}` });
             return;
         }
         await generateStreamMessage(interaction, filteredStreams, currentPage, totalPages);
@@ -142,6 +170,10 @@ const searchStreamByNumber = (streams, searchSegment) => {
     return null;
 };
 
+function buildJellyfinDownloadLink(JELLYFIN_URL, JELLYFIN_API_KEY, streamId) {
+    return `${JELLYFIN_URL}/Items/${streamId}/Download?api_key=${JELLYFIN_API_KEY}`;
+}
+
 const createNavigationButtons = (currentPage, totalPages) => {
     return new ActionRowBuilder().addComponents(
         new ButtonBuilder()
@@ -153,7 +185,7 @@ const createNavigationButtons = (currentPage, totalPages) => {
             .setCustomId('right')
             .setLabel('➡️ Next')
             .setStyle(ButtonStyle.Primary)
-            .setDisabled(currentPage === totalPages - 1) 
+            .setDisabled(currentPage === totalPages - 1)
     );
 };
 
@@ -161,11 +193,11 @@ const createDropdownMenus = (currentStreams, currentPage) => {
     const dropdownMenus = [];
     const DROPDOWNS_PER_MESSAGE = 4;
     const MAX_DROPDOWN_ITEMS = 25;
-    for (let i = 0; i < DROPDOWNS_PER_MESSAGE; i++) { 
+    for (let i = 0; i < DROPDOWNS_PER_MESSAGE; i++) {
         const streamChunk = currentStreams.slice(i * MAX_DROPDOWN_ITEMS, (i + 1) * MAX_DROPDOWN_ITEMS);
         const dropDownOptions = streamChunk.map(([name, url]) => ({
             label: name,
-            value: parseStreamNumber(url)
+            value: name.startsWith('[JF | ]') ? parseStreamNumber(url) : url
         }));
         if (dropDownOptions.length > 0) {
             const selectMenu = new StringSelectMenuBuilder()

@@ -9,9 +9,13 @@ services:
     environment:
       DISCORD_TOKEN: ""
       M3U_STREAMS_URL: ""
+      JELLYFIN_URL: ""
+      JELLYFIN_API_KEY: "" 
+      JELLYFIN_FOLDER_LIST: ""
       CLIENT_ID: ""
       GUILD_ID: ""
       STREAM_BOT_URL: ""
       TZ: ""
       KEYWORDS: ""
       EXCLUDES: ""
+      

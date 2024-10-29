@@ -13,7 +13,7 @@ const client = new Client({
 client.commands = new Collection();
 client.streams = {};
 
-const { CLIENT_ID, GUILD_ID, DISCORD_TOKEN, M3U_STREAMS_URL } = process.env;
+const { CLIENT_ID, GUILD_ID, DISCORD_TOKEN, M3U_STREAMS_URL, JELLYFIN_URL, JELLYFIN_API_KEY, JELLYFIN_FOLDER_LIST } = process.env;
 const M3U_STREAMS_PATH = "streams.m3u"
 
 
@@ -61,13 +61,20 @@ const rest = new REST({ version: '10' }).setToken(DISCORD_TOKEN);
 client.once(Events.ClientReady, async () => {
 	console.log(`Ready! Logged in as ${client.user.tag}`);
 
-	if (M3U_STREAMS_URL) {
+	if (M3U_STREAMS_URL || JELLYFIN_URL) {
 		console.log('Running initial file download on startup...');
-		await downloadFile(M3U_STREAMS_URL, M3U_STREAMS_PATH);
+		await importJellyfinStreams(JELLYFIN_URL, JELLYFIN_API_KEY, JELLYFIN_FOLDER_LIST);
+		// await downloadFile(M3U_STREAMS_URL, M3U_STREAMS_PATH);
 		cron.schedule('0 5 * * *', async () => {
-			console.log('Running daily file download at 5:00 AM America/New_York time...');
-			await downloadFile(M3U_STREAMS_URL, M3U_STREAMS_PATH);
-			await importM3UFile(M3U_STREAMS_PATH);
+			if (M3U_STREAMS_URL) {
+				console.log('Running daily file download at 5:00 AM America/New_York time...');
+				await downloadFile(M3U_STREAMS_URL, M3U_STREAMS_PATH);
+				await importM3UFile(M3U_STREAMS_PATH);
+			}
+			if (JELLYFIN_URL) {
+				console.log('Importing Jellyfin titles...');
+				await importJellyfinStreams(JELLYFIN_URL, JELLYFIN_API_KEY, JELLYFIN_FOLDER_LIST);
+			}
 		}, {
 			scheduled: true,
 			timezone: "America/New_York"
@@ -77,7 +84,7 @@ client.once(Events.ClientReady, async () => {
 	}
 
 	if (M3U_STREAMS_PATH) {
-		importM3UFile(M3U_STREAMS_PATH);
+		// importM3UFile(M3U_STREAMS_PATH);
 	} else {
 		console.error('No M3U file path specified in environment variables.');
 	}
@@ -186,6 +193,121 @@ function parseM3UFile(fileContent) {
 	});
 
 	return streams;
+}
+
+async function importJellyfinStreams(JELLYFIN_URL, JELLYFIN_API_KEY, JELLYFIN_FOLDER_LIST) {
+	// Ensure the folder list is split into an array
+	const collections = JELLYFIN_FOLDER_LIST.split(',').map(collection => collection.trim());
+	try {
+		// Step 1: Fetch all collections (folders) from Jellyfin
+		const response = await axios({
+			url: `${JELLYFIN_URL}/Items`,
+			method: 'GET',
+			params: {
+				api_key: JELLYFIN_API_KEY,
+				IncludeItemTypes: 'Folder' // We only want folders
+			},
+			headers: {
+				'accept': 'application/json'
+			}
+		});
+
+		// Parse the list of all collections/folders
+		const allCollections = response.data.Items;
+
+		// Filter collections based on the names in the provided list
+		const matchingCollections = allCollections.filter(item => collections.includes(item.Name));
+
+		// Step 2: For each matching collection, fetch the media items (movies, episodes)
+		for (const collection of matchingCollections) {
+			try {
+				const itemsResponse = await axios({
+					url: `${JELLYFIN_URL}/Items`,
+					method: 'GET',
+					params: {
+						ParentId: collection.Id, // Fetch items under this collection (folder)
+						Recursive: true,
+						IncludeItemTypes: 'Movie,Episode', // Specify the type of media you want
+						api_key: JELLYFIN_API_KEY
+					},
+					headers: {
+						'accept': 'application/json'
+					}
+				});
+
+				// Parse the media items in the collection
+				const mediaItems = itemsResponse.data.Items;
+
+				// Step 3: Add each media item to client.streams with Name as key and Id as value
+				mediaItems.forEach(item => {
+					client.streams[`JF | ${item.Name}`] = `${item.Id}`;
+				});
+
+				console.log(`Successfully imported streams for collection: ${collection.Name}`);
+			} catch (error) {
+				console.error(`Error fetching media items for collection ${collection.Name}:`, error);
+			}
+		}
+	} catch (error) {
+		console.error('Error fetching collections from Jellyfin:', error);
+	}
+}
+async function importJellyfinStreams(JELLYFIN_URL, JELLYFIN_API_KEY, JELLYFIN_FOLDER_LIST) {
+	// Ensure the folder list is split into an array
+	const collections = JELLYFIN_FOLDER_LIST.split(',').map(collection => collection.trim());
+	try {
+		// Step 1: Fetch all collections (folders) from Jellyfin
+		const response = await axios({
+			url: `${JELLYFIN_URL}/Items`,
+			method: 'GET',
+			params: {
+				api_key: JELLYFIN_API_KEY,
+				IncludeItemTypes: 'Folder' // We only want folders
+			},
+			headers: {
+				'accept': 'application/json'
+			}
+		});
+
+		// Parse the list of all collections/folders
+		const allCollections = response.data.Items;
+
+		// Filter collections based on the names in the provided list
+		const matchingCollections = allCollections.filter(item => collections.includes(item.Name));
+
+		// Step 2: For each matching collection, fetch the media items (movies, episodes)
+		for (const collection of matchingCollections) {
+			try {
+				const itemsResponse = await axios({
+					url: `${JELLYFIN_URL}/Items`,
+					method: 'GET',
+					params: {
+						ParentId: collection.Id, // Fetch items under this collection (folder)
+						Recursive: true,
+						IncludeItemTypes: 'Movie,Episode', // Specify the type of media you want
+						api_key: JELLYFIN_API_KEY
+					},
+					headers: {
+						'accept': 'application/json'
+					}
+				});
+
+				// Parse the media items in the collection
+				const mediaItems = itemsResponse.data.Items;
+
+				// Step 3: Add each media item to client.streams with Name as key and Id as value
+				mediaItems.forEach(item => {
+					client.streams[`JF | ${item.Name}`] = `${item.Id}`;
+				});
+
+				console.log(`Successfully imported streams for collection: ${collection.Name}`);
+			} catch (error) {
+				console.error(`Error fetching media items for collection ${collection.Name}:`, error);
+			}
+		}
+	} catch (error) {
+		console.error('Error fetching collections from Jellyfin:', error);
+	}
 }
 
 client.login(DISCORD_TOKEN);
