@@ -161,12 +161,18 @@ const createDropdownMenus = (currentStreams, currentPage) => {
     const dropdownMenus = [];
     const DROPDOWNS_PER_MESSAGE = 4;
     const MAX_DROPDOWN_ITEMS = 25;
+    const MAX_LABEL_LENGTH = 75;
+
     for (let i = 0; i < DROPDOWNS_PER_MESSAGE; i++) { 
         const streamChunk = currentStreams.slice(i * MAX_DROPDOWN_ITEMS, (i + 1) * MAX_DROPDOWN_ITEMS);
-        const dropDownOptions = streamChunk.map(([name, url]) => ({
-            label: name,
-            value: parseStreamNumber(url)
-        }));
+        const dropDownOptions = streamChunk.map(([name, url]) => {
+            const trimmedName = name.length > MAX_LABEL_LENGTH ? `${name.slice(0, MAX_LABEL_LENGTH - 3)}...` : name;
+            return {
+                label: trimmedName,
+                value: parseStreamNumber(url)
+            };
+        });
+
         if (dropDownOptions.length > 0) {
             const selectMenu = new StringSelectMenuBuilder()
                 .setCustomId(`stream_menu_${currentPage}_${i}`)
