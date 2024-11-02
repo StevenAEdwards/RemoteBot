@@ -95,16 +95,45 @@ const createCollector = (interaction, filteredStreams, currentPage, totalPages, 
             const requestData = {
                 guildId: i.guildId,
                 channelId: voiceChannel.id,
-                streamURL: streamUrl
+                stream: {
+                    name: streamName,
+                    url: streamUrl
+                },
+                user: {
+                    id: member.user.id,
+                    name:  member.user.username
+                }
             };
 
             await i.update({ content: `🔄 Attempting to start **${streamName}** in **${voiceChannel.name}**...`, components: [] });
 
             try {
-                await axios.post(`${process.env.STREAM_BOT_URL}/play`, requestData, {
+                const response = await axios.post(`${process.env.STREAM_BOT_URL}/play`, requestData, {
                     headers: { 'Content-Type': 'application/json' },
+                    validateStatus: (status) => status === 200 || status === 409
                 });
-                await i.editReply({ content: `✅ Successfully started streaming **${streamName}** in **${voiceChannel.name}**!` });
+                if (response.status === 200) {
+                    await i.editReply({ content: `✅ Successfully started streaming **${streamName}** in **${voiceChannel.name}**!` });
+                } else if (response.status === 409) {
+                    const botUserId = response.data.botUserId;
+
+                    if (botUserId) {
+                        const guild = i.guild;
+                        const botMember = await guild.members.fetch(botUserId);
+                        if (botMember && botMember.voice.channel) {
+                            await botMember.voice.disconnect();
+                            console.log(`Disconnected bot user with ID ${botUserId} due to 409 Conflict response.`);
+                        } else {
+                            console.log(`Bot user with ID ${botUserId} is not in a voice channel.`);
+                        }
+                    }
+                    // TODO refactor this whole method
+                    // try request again 
+                    await new Promise(resolve => setTimeout(resolve, 5000));
+                    await axios.post(`${process.env.STREAM_BOT_URL}/play`, requestData, {
+                        headers: { 'Content-Type': 'application/json' },
+                    });
+                }
             } catch (error) {
                 console.error('Error starting stream:', error);
                 await i.editReply({ content: `❌ Failed to start streaming: ${error.message}` });
