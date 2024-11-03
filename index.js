@@ -13,9 +13,7 @@ const client = new Client({
 client.commands = new Collection();
 client.streams = {};
 
-const { CLIENT_ID, GUILD_ID, DISCORD_TOKEN, M3U_STREAMS_URL } = process.env;
-const M3U_STREAMS_PATH = "streams.m3u"
-
+const { CLIENT_ID, GUILD_ID, DISCORD_TOKEN, M3U_URLS } = process.env;
 
 if (!CLIENT_ID || !GUILD_ID || !DISCORD_TOKEN) {
 	console.error('Missing critical environment variables. Ensure CLIENT_ID, GUILD_ID, and DISCORD_TOKEN are set.');
@@ -61,25 +59,17 @@ const rest = new REST({ version: '10' }).setToken(DISCORD_TOKEN);
 client.once(Events.ClientReady, async () => {
 	console.log(`Ready! Logged in as ${client.user.tag}`);
 
-	if (M3U_STREAMS_URL) {
-		console.log('Running initial file download on startup...');
-		await downloadFile(M3U_STREAMS_URL, M3U_STREAMS_PATH);
+	if (M3U_URLS) {
+		await processM3UFiles(M3U_URLS)
 		cron.schedule('0 5 * * *', async () => {
 			console.log('Running daily file download at 5:00 AM America/New_York time...');
-			await downloadFile(M3U_STREAMS_URL, M3U_STREAMS_PATH);
-			await importM3UFile(M3U_STREAMS_PATH);
+			await processM3UFiles(M3U_URLS)
 		}, {
 			scheduled: true,
 			timezone: "America/New_York"
 		});
 	} else {
-		console.error('No M3U_STREAMS_URL specified in environment variables.');
-	}
-
-	if (M3U_STREAMS_PATH) {
-		importM3UFile(M3U_STREAMS_PATH);
-	} else {
-		console.error('No M3U file path specified in environment variables.');
+		console.error('No M3U_URLS specified in environment variables.');
 	}
 });
 
@@ -129,6 +119,36 @@ async function sendError(interaction, message) {
 	}
 }
 
+async function processM3UFiles(urlList) {
+	const urls = urlList.split(',');
+	let streamList = {};
+
+	for (const url of urls) {
+		const trimmedUrl = url.trim();
+		const savePath = `./downloaded.m3u`;
+
+		try {
+			await downloadFile(trimmedUrl, savePath);
+
+			const importedStreams = importM3UFile(savePath);
+			if (importedStreams) {
+				streamList = { ...streamList, ...importedStreams };
+			}
+
+			fs.unlink(savePath, (err) => {
+				if (err) {
+					console.error(`Error deleting file ${savePath}:`, err);
+				} else {
+					console.log(`File ${savePath} deleted successfully after import`);
+				}
+			});
+		} catch (error) {
+			console.error(`Failed to process ${trimmedUrl}:`, error);
+		}
+	}
+	client.streams = streamList;
+}
+
 async function downloadFile(url, savePath) {
 	try {
 		const response = await axios({
@@ -158,15 +178,15 @@ async function downloadFile(url, savePath) {
 function importM3UFile(filePath) {
 	if (!fs.existsSync(filePath)) {
 		console.error(`M3U file not found at: ${filePath}`);
-		return;
+		return null;
 	}
 
 	try {
 		const fileContent = fs.readFileSync(filePath, 'utf8');
-		client.streams = parseM3UFile(fileContent);
-		console.log('Streams imported successfully');
+		return parseM3UFile(fileContent);
 	} catch (error) {
 		console.error('Error reading M3U file:', error);
+		return null;
 	}
 }
 
